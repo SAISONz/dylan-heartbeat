@@ -1,3 +1,5 @@
+console.log('✅ ADMIN_USER:', process.env.ADMIN_USER);
+console.log('✅ ADMIN_PASSWORD:', process.env.ADMIN_PASSWORD);
 require("dotenv").config();
 
 const Fastify = require("fastify");
