@@ -3,6 +3,9 @@ const fs = require("fs");
 const path = require("path");
 const { buildNtfyPayload } = require("./ntfy_priority");
 
+console.log('🔍 GATEWAY_BASE_URL:', process.env.GATEWAY_BASE_URL);
+console.log('🔍 GATEWAY_API_KEY:', process.env.GATEWAY_API_KEY ? '已设置' : '未设置');
+
 const TIMELINE_PATH = path.join(__dirname, "enhanced_messages.json");
 const PORT = Number(process.env.PORT) || 3000;
 const GATEWAY_BASE_URL = (process.env.GATEWAY_BASE_URL || `http://localhost:${PORT}`).replace(/\/+$/, "");
@@ -620,12 +623,32 @@ function getCheckIntervalMs() {
   return getCheckIntervalMinutes(new Date()) * 60 * 1000;
 }
 
+try {
+  const eventResponse = await fetch(GATEWAY_URL, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ content: eventContent })
+  });
+  if (!eventResponse.ok) {
+    throw new Error(`Gateway 返回 HTTP ${eventResponse.status}`);
+  }
+  console.log("\n✅ 已通过 Gateway 记录唤醒事件\n");
+} catch (err) {
+  console.error("\n❌ 记录唤醒事件失败（Gateway 是否运行？）:\n", err.message);
+}
+
 async function scheduleNextCheck() {
-  try {
-    // 发送心跳
-    try {
-      await fetch(HEARTBEAT_URL, { method: "POST" });
-    } catch {}
+// 发送心跳
+try {
+  const heartbeatRes = await fetch(HEARTBEAT_URL, { method: "POST" });
+  if (!heartbeatRes.ok) {
+    console.error(`❌ 心跳失败: HTTP ${heartbeatRes.status}`);
+  } else {
+    console.log('✅ 心跳成功');
+  }
+} catch (heartbeatErr) {
+  console.error('❌ 心跳请求异常:', heartbeatErr.message);
+}
     await runWakeUp();
   } catch (err) {
     console.error("唤醒检查出错:", err);
