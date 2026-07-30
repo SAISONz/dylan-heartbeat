@@ -600,17 +600,26 @@ function getCheckIntervalMs() {
 console.log('🔑 GATEWAY_API_KEY used:', process.env.GATEWAY_API_KEY ? 'exists' : 'missing');
 async function scheduleNextCheck() {
   try {
-    // 发送心跳（修改：添加详细日志）
+    // 打印 API Key 是否存在（用于调试）
+    console.log('🔑 GATEWAY_API_KEY 存在:', process.env.GATEWAY_API_KEY ? '是' : '否');
+    // 可选：打印实际值的前几位（注意安全）
+    // console.log('🔑 GATEWAY_API_KEY 值:', process.env.GATEWAY_API_KEY ? process.env.GATEWAY_API_KEY.substring(0,4) + '...' : '未设置');
+
+    // 发送心跳，同时携带常见的两种认证头
     try {
-const heartbeatRes = await fetch(HEARTBEAT_URL, {
-  method: "POST",
-  headers: {
-    "x-api-key": process.env.GATEWAY_API_KEY,
-    "Authorization": `Bearer ${process.env.GATEWAY_API_KEY}`
-  }
-});
+      const headers = {
+        "x-api-key": process.env.GATEWAY_API_KEY,
+        "Authorization": `Bearer ${process.env.GATEWAY_API_KEY}`
+      };
+      console.log('📡 发送心跳请求到:', HEARTBEAT_URL);
+      const heartbeatRes = await fetch(HEARTBEAT_URL, {
+        method: "POST",
+        headers: headers
+      });
+      const responseText = await heartbeatRes.text(); // 读取响应体
       if (!heartbeatRes.ok) {
         console.error(`❌ 心跳失败: HTTP ${heartbeatRes.status}`);
+        console.error('响应内容:', responseText || '(空)');
       } else {
         console.log('✅ 心跳成功');
       }
