@@ -597,7 +597,7 @@ ${historyText}`
 function getCheckIntervalMs() {
   return getCheckIntervalMinutes(new Date()) * 60 * 1000;
 }
-
+console.log('🔑 GATEWAY_API_KEY used:', process.env.GATEWAY_API_KEY ? 'exists' : 'missing');
 async function scheduleNextCheck() {
   try {
     // 发送心跳（修改：添加详细日志）
@@ -605,7 +605,7 @@ async function scheduleNextCheck() {
 const heartbeatRes = await fetch(HEARTBEAT_URL, {
   method: "POST",
   headers: {
-   "x-api-key": process.env.GATEWAY_API_KEY,
+    "x-api-key": process.env.GATEWAY_API_KEY,
     "Authorization": `Bearer ${process.env.GATEWAY_API_KEY}`
   }
 });
