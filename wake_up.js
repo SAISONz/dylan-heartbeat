@@ -602,7 +602,13 @@ async function scheduleNextCheck() {
   try {
     // 发送心跳（修改：添加详细日志）
     try {
-      const heartbeatRes = await fetch(HEARTBEAT_URL, { method: "POST" });
+const heartbeatRes = await fetch(HEARTBEAT_URL, {
+  method: "POST",
+  headers: {
+   "x-api-key": process.env.GATEWAY_API_KEY,
+    "Authorization": `Bearer ${process.env.GATEWAY_API_KEY}`
+  }
+});
       if (!heartbeatRes.ok) {
         console.error(`❌ 心跳失败: HTTP ${heartbeatRes.status}`);
       } else {
