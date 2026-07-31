@@ -295,14 +295,28 @@ async function fetchWeatherContext() {
   }
 }
 
+// 🔥 修正：带详细日志的 loadTimelineMessages
 function loadTimelineMessages() {
+  console.log('📂 尝试读取 enhanced_messages.json');
   if (!fs.existsSync(TIMELINE_PATH)) {
-    console.log("未找到 enhanced_messages.json");
+    console.log('❌ 文件不存在:', TIMELINE_PATH);
     return null;
   }
 
   try {
     const parsed = JSON.parse(fs.readFileSync(TIMELINE_PATH, "utf-8"));
+    console.log(`✅ 文件存在，共 ${Array.isArray(parsed) ? parsed.length : '非数组'} 条消息`);
+    if (Array.isArray(parsed) && parsed.length > 0) {
+      const first = parsed[0];
+      console.log(`📝 第一条消息: role=${first.role}, content前50字符=${(first.content || '').slice(0,50)}`);
+      for (let i = parsed.length - 1; i >= 0; i--) {
+        if (parsed[i].role === 'user') {
+          const timeMatch = parsed[i].content.match(/\d{4}-\d{2}-\d{2} \d{2}:\d{2}/);
+          console.log(`🕒 最后用户消息时间: ${timeMatch ? timeMatch[0] : '无时间戳'}`);
+          break;
+        }
+      }
+    }
     if (!Array.isArray(parsed)) {
       console.log("enhanced_messages.json 格式错误：顶层不是数组");
       return null;
@@ -403,57 +417,42 @@ ${weatherContext ? `\n${weatherContext}\n` : ""}
 `;
 }
 
+// 🔥 修正后的 runWakeUp
 async function runWakeUp() {
   console.log("\n==========================");
   console.log("开始自动唤醒");
   console.log("==========================\n");
 
-  function loadTimelineMessages() {
-  console.log('📂 尝试读取 enhanced_messages.json');
-  if (!fs.existsSync(TIMELINE_PATH)) {
-    console.log('❌ 文件不存在:', TIMELINE_PATH);
-    return null;
-  }
-
-  try {
-    const parsed = JSON.parse(fs.readFileSync(TIMELINE_PATH, "utf-8"));
-    console.log(`✅ 文件存在，共 ${Array.isArray(parsed) ? parsed.length : '非数组'} 条消息`);
-    if (Array.isArray(parsed) && parsed.length > 0) {
-      // 打印第一条消息的简略信息
-      const first = parsed[0];
-      console.log(`📝 第一条消息: role=${first.role}, content前50字符=${(first.content || '').slice(0,50)}`);
-      // 如果有用户消息，打印最后一条用户消息的时间
-      for (let i = parsed.length - 1; i >= 0; i--) {
-        if (parsed[i].role === 'user') {
-          const timeMatch = parsed[i].content.match(/\d{4}-\d{2}-\d{2} \d{2}:\d{2}/);
-          console.log(`🕒 最后用户消息时间: ${timeMatch ? timeMatch[0] : '无时间戳'}`);
-          break;
-        }
-      }
-    }
-    if (!Array.isArray(parsed)) {
-      console.log("enhanced_messages.json 格式错误：顶层不是数组");
-      return null;
-    }
-    return parsed;
-  } catch (err) {
-    console.error("读取 enhanced_messages.json 失败:", err.message);
-    return null;
-  }
-}
-
-  const now = new Date();
-  const diffMinutes = Math.floor((now - lastUserTime) / 1000 / 60);
-
-  if (!shouldWake(lastUserTime)) {
-    console.log("\n暂不需要唤醒\n");
+  // 1. 读取消息
+  const messages = loadTimelineMessages();
+  if (!messages) {
+    console.log("❌ 没有消息记录，跳过本次唤醒");
     return;
   }
 
+  // 2. 获取最后用户时间
+  const lastUserTime = getLastUserTime(messages);
+  if (!lastUserTime) {
+    console.log("未找到用户时间");
+    return;
+  }
+
+  // 3. 计算时间差
+  const now = new Date();
+  const diffMinutes = Math.floor((now - lastUserTime) / 1000 / 60);
+
+  // 4. 判断是否需要唤醒
+  if (!shouldWake(lastUserTime)) {
+    console.log(`\n暂不需要唤醒（距最后消息 ${diffMinutes} 分钟）\n`);
+    return;
+  }
+
+  // 5. 获取天气（如果启用）
   const weatherContext = await fetchWeatherContext();
   const wakePrompt = buildWakePrompt(getChinaTimeString(), diffMinutes, weatherContext);
   const cleanMessages = stripPosition(messages);
 
+  // 6. 构建历史消息摘要
   const historyText = cleanMessages
     .filter(msg => msg.role !== "system")
     .filter(msg => {
@@ -505,6 +504,7 @@ ${historyText}`
     return;
   }
 
+  // 7. 调用 AI 生成推送内容
   const response = await fetch(process.env.TARGET_API_URL, {
     method: "POST",
     headers: {
@@ -541,6 +541,7 @@ ${historyText}`
 
   let eventContent;
 
+  // 8. 处理 AI 返回内容
   if (!aiText) {
     console.log("\nAI 未返回推送内容，本次不发送推送\n");
     eventContent = diarySaved
@@ -604,6 +605,7 @@ ${historyText}`
     }
   }
 
+  // 9. 记录唤醒事件到 Gateway
   try {
     const eventResponse = await fetch(GATEWAY_URL, {
       method: "POST",
@@ -622,15 +624,12 @@ ${historyText}`
 function getCheckIntervalMs() {
   return getCheckIntervalMinutes(new Date()) * 60 * 1000;
 }
+
 console.log('🔑 GATEWAY_API_KEY used:', process.env.GATEWAY_API_KEY ? 'exists' : 'missing');
+
 async function scheduleNextCheck() {
   try {
-    // 打印 API Key 是否存在（用于调试）
     console.log('🔑 GATEWAY_API_KEY 存在:', process.env.GATEWAY_API_KEY ? '是' : '否');
-    // 可选：打印实际值的前几位（注意安全）
-    // console.log('🔑 GATEWAY_API_KEY 值:', process.env.GATEWAY_API_KEY ? process.env.GATEWAY_API_KEY.substring(0,4) + '...' : '未设置');
-
-    // 发送心跳，同时携带常见的两种认证头
     try {
       const headers = {
         "x-api-key": process.env.GATEWAY_API_KEY,
@@ -641,7 +640,7 @@ async function scheduleNextCheck() {
         method: "POST",
         headers: headers
       });
-      const responseText = await heartbeatRes.text(); // 读取响应体
+      const responseText = await heartbeatRes.text();
       if (!heartbeatRes.ok) {
         console.error(`❌ 心跳失败: HTTP ${heartbeatRes.status}`);
         console.error('响应内容:', responseText || '(空)');
