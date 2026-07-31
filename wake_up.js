@@ -408,14 +408,39 @@ async function runWakeUp() {
   console.log("开始自动唤醒");
   console.log("==========================\n");
 
-  const messages = loadTimelineMessages();
-  if (!messages) return;
-
-  const lastUserTime = getLastUserTime(messages);
-  if (!lastUserTime) {
-    console.log("未找到用户时间");
-    return;
+  function loadTimelineMessages() {
+  console.log('📂 尝试读取 enhanced_messages.json');
+  if (!fs.existsSync(TIMELINE_PATH)) {
+    console.log('❌ 文件不存在:', TIMELINE_PATH);
+    return null;
   }
+
+  try {
+    const parsed = JSON.parse(fs.readFileSync(TIMELINE_PATH, "utf-8"));
+    console.log(`✅ 文件存在，共 ${Array.isArray(parsed) ? parsed.length : '非数组'} 条消息`);
+    if (Array.isArray(parsed) && parsed.length > 0) {
+      // 打印第一条消息的简略信息
+      const first = parsed[0];
+      console.log(`📝 第一条消息: role=${first.role}, content前50字符=${(first.content || '').slice(0,50)}`);
+      // 如果有用户消息，打印最后一条用户消息的时间
+      for (let i = parsed.length - 1; i >= 0; i--) {
+        if (parsed[i].role === 'user') {
+          const timeMatch = parsed[i].content.match(/\d{4}-\d{2}-\d{2} \d{2}:\d{2}/);
+          console.log(`🕒 最后用户消息时间: ${timeMatch ? timeMatch[0] : '无时间戳'}`);
+          break;
+        }
+      }
+    }
+    if (!Array.isArray(parsed)) {
+      console.log("enhanced_messages.json 格式错误：顶层不是数组");
+      return null;
+    }
+    return parsed;
+  } catch (err) {
+    console.error("读取 enhanced_messages.json 失败:", err.message);
+    return null;
+  }
+}
 
   const now = new Date();
   const diffMinutes = Math.floor((now - lastUserTime) / 1000 / 60);
