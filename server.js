@@ -200,11 +200,14 @@ function loadTimeline() {
 // 保存 timeline（保留 SP）
 // ========================
 function saveTimeline(messages) {
+  console.log(`📝 saveTimeline 被调用，消息数量: ${messages.length}`);
   const sp = messages.find(m => m.role === "system");
   const nonSP = messages.filter(m => m.role !== "system");
   const trimmed = nonSP.slice(-49);
   const final = sp ? [sp, ...trimmed] : trimmed;
+  console.log(`📝 最终保存 ${final.length} 条消息`);
   fs.writeJsonSync(TIMELINE_FILE, final, { spaces: 2 });
+  console.log('✅ 写入完成');
 }
 
 // ========================
