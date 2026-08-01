@@ -201,11 +201,13 @@ function loadTimeline() {
 // ========================
 function saveTimeline(messages) {
   console.log(`📝 saveTimeline 被调用，消息数量: ${messages.length}`);
+  // 不再截断，保存全部（但保留 system 消息在首位）
   const sp = messages.find(m => m.role === "system");
   const nonSP = messages.filter(m => m.role !== "system");
-  const trimmed = nonSP.slice(-49);
+  // 如果消息太多，保留最近 500 条（避免文件过大）
+  const trimmed = nonSP.slice(-500);
   const final = sp ? [sp, ...trimmed] : trimmed;
-  console.log(`📝 最终保存 ${final.length} 条消息`);
+  console.log(`📝 最终保存 ${final.length} 条消息（含 system）`);
   fs.writeJsonSync(TIMELINE_FILE, final, { spaces: 2 });
   console.log('✅ 写入完成');
 }
@@ -304,6 +306,10 @@ function isSystemRule(msg) {
 // ========================
 // 构建 Timeline
 // ========================
+function buildTimeline(kelivoMessages, tsDB) {
+  console.log(`🏗️ buildTimeline 收到 ${kelivoMessages.length} 条消息`);
+  // ... 原有代码
+}
 function buildTimeline(kelivoMessages, tsDB) {
   const oldTimeline = loadTimeline();
   const newSystemMessages = kelivoMessages
