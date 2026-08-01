@@ -312,9 +312,19 @@ function buildTimeline(kelivoMessages, tsDB) {
   const latestSP = newSystemMessages.length > 0 ? newSystemMessages[newSystemMessages.length - 1] : null;
   const oldSP = oldTimeline.find(msg => msg.role === "system");
 
-  const newRealMessages = kelivoMessages
-    .filter(isRealMessageForTimeline)
-    .map(normalizeMessageForTimeline);
+const now = new Date();
+const pad = n => String(n).padStart(2, '0');
+const timestampPrefix = `（${now.getFullYear()}-${pad(now.getMonth()+1)}-${pad(now.getDate())} ${pad(now.getHours())}:${pad(now.getMinutes())}）`;
+
+const newRealMessages = kelivoMessages
+  .filter(isRealMessageForTimeline)
+  .map(msg => {
+    const normalized = normalizeMessageForTimeline(msg);
+    if (msg.role === 'user') {
+      normalized.content = timestampPrefix + (normalized.content || '');
+    }
+    return normalized;
+  });
 
   const oldSpecialEvents = oldTimeline.filter(isSpecialEvent).sort((a, b) => {
     const timeA = extractTimestampWithMemory(a, tsDB);
